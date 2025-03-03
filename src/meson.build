@@ -17,7 +17,7 @@
 
 gnome = import ('gnome')
 
-ipclib = static_library \
+ipclib = library \
   (
     'ipclib',
     c_args: [ '-DG_LOG_DOMAIN="IpcLib"', '-DG_LOG_USE_STRUCTURED=1' ],
@@ -33,7 +33,8 @@ ipclib = static_library \
         'ipclib.h',
         'ipcreplay.c', 'ipcreplay.h',
 
-        gnome.genmarshal ('ipcmarshal', internal: true, sources: 'marshal.list', valist_marshallers: true)
+        gnome.genmarshal ('ipcmarshal', internal: true, sources: 'marshal.list',
+          valist_marshallers: true)
       ])
 
 ipclib_dep = declare_dependency \
@@ -41,6 +42,7 @@ ipclib_dep = declare_dependency \
     dependencies: libgio_dep,
     include_directories: include_directories ('.'),
     link_with: ipclib,
+    sources: [ 'ipccall.h', 'ipcendpoint.h', 'ipchandler.h', 'ipclib.h', 'ipcreplay.h' ]
   )
 
 ipclib_valadep = declare_dependency \
@@ -51,4 +53,4 @@ ipclib_valadep = declare_dependency \
   )
 
 meson.override_dependency ('ipclib', ipclib_dep)
-meson.override_dependency ('ipclib-vala', ipclib_dep)
+meson.override_dependency ('ipclib-vala', ipclib_valadep)

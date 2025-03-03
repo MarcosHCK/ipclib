@@ -29,8 +29,7 @@ GVariant* ipc_call_pack (const gchar* name, GVariant* arguments)
       g_variant_new_string (name),
       arguments,
     };
-
-  return g_variant_new_tuple (values, G_N_ELEMENTS (values));
+return g_variant_new_tuple (values, G_N_ELEMENTS (values));
 }
 
 gchar* ipc_call_unpack (GVariant* call, GVariant** arguments)
@@ -40,5 +39,5 @@ gchar* ipc_call_unpack (GVariant* call, GVariant** arguments)
   gchar* name = NULL;
 
   g_variant_get (call, "(sr)", &name, arguments ? arguments : &placeholder);
-  return (_g_variant_unref0 (placeholder), name);
+return (_g_variant_unref0 (placeholder), name);
 }
