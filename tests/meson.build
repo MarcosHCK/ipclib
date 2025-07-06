@@ -21,6 +21,7 @@ tests = \
       'sources': [ 'core.vala' ] },
   ]
 
+baselib = files ('base.c', 'base.h', 'base.vala')
 valac = meson.get_compiler ('vala')
 
 foreach test_ : tests
@@ -41,7 +42,7 @@ foreach test_ : tests
         ( '@0@-bin'.format (name),
           dependencies: [ deps, libgio_dep, valac.find_library ('gio-2.0') ],
           link_with: libs,
-          sources: [ 'base.vala', sources ] ),
+          sources: [ baselib, sources ] ),
 
       env: [ 'G_TEST_SRCDIR=@0@'.format (meson.current_source_dir () / '..'),
              'G_TEST_BUILDDIR=@0@'.format (meson.current_build_dir () / '..') ],

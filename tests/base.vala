@@ -57,8 +57,9 @@ namespace Testing
           return acc;
         }
 
-      public static string rand_string (size_t length)
+      public static string rand_string (ssize_t _length = -1)
         {
+          var length = 0 < _length ? _length : GLib.Test.rand_int_range (0, 20);
           var str = new GLib.StringBuilder.sized (length);
 
           for (size_t i = 0; i < length; ++i)
@@ -67,6 +68,119 @@ namespace Testing
               str.append_c ((char) c);
             }
           return str.free_and_steal ();
+        }
+
+      public static GLib.Variant rand_variant (bool simple = false)
+        {
+          var signature = _rand_signature (simple);
+          var variant = _rand_variant (signature, simple);
+        return variant;
+        }
+
+      [CCode (cheader_filename = "base.h", cname = "_testing_rand_object_path")]
+      static extern string _rand_object_path ();
+
+      [CCode (cheader_filename = "base.h", cname = "_testing_rand_signature")]
+      static extern GLib.VariantType _rand_signature (bool simple, bool strict = false);
+
+      static GLib.Variant _rand_variant (GLib.VariantType signature, bool simple)
+        {
+
+          if (signature.is_array ()) return _rand_variant_array (signature, simple);
+          else if (signature.is_basic ()) return _rand_variant_simple (signature, simple);
+          else if (signature.is_dict_entry ()) return _rand_variant_dict_entry (signature, simple);
+          else if (signature.is_maybe ()) return _rand_variant_maybe (signature, simple);
+          else if (signature.is_tuple ()) return _rand_variant_tuple (signature, simple);
+          else if (signature.is_variant ()) return _rand_variant_simple (signature, simple);
+          else assert_not_reached ();
+        }
+
+      static GLib.Variant _rand_variant_array (GLib.VariantType signature, bool simple)
+        {
+          unowned var size = GLib.Test.rand_int_range (0, 100);
+          unowned var type = signature.element ();
+
+          var array = new GenericArray<GLib.Variant> (size);
+
+          for (uint i = 0; i < (uint) size; ++i)
+            {
+              var inner = _rand_variant (type, simple);
+              array.add ((owned) inner);
+            }
+        return new GLib.Variant.array (type, array.steal ());
+        }
+
+      static GLib.Variant _rand_variant_dict_entry (GLib.VariantType signature, bool simple)
+        {
+          unowned var ctype1 = signature.first ();
+          unowned var ctype2 = ctype1.next ();
+
+          var inner1 = _rand_variant (ctype1, simple);
+          var inner2 = _rand_variant (ctype2, simple);
+        return new GLib.Variant.dict_entry (inner1, inner2);
+        }
+
+      static GLib.Variant _rand_variant_maybe (GLib.VariantType signature, bool simple)
+        {
+          unowned var have = GLib.Test.rand_bit ();
+          unowned var type = signature.element ();
+
+          var inner = ! have ? null : _rand_variant (type, simple);
+        return new GLib.Variant.maybe (type, inner);
+        }
+
+      static GLib.Variant _rand_variant_simple (GLib.VariantType signature, bool simple)
+        {
+
+          switch (signature.peek_string () [0])
+            {
+
+              /* simple types */
+              case 'b': { var value = GLib.Test.rand_bit ();
+                          return new GLib.Variant.boolean (value); }
+              case 'd': { var value = GLib.Test.rand_double ();
+                          return new GLib.Variant.double (value); }
+              case 'g': { var value = _rand_signature (false, true);
+                          return new GLib.Variant.signature ((string) value.peek_string ()); }
+              case 'h': { var value = GLib.Test.rand_double_range (int32.MIN, int32.MAX);
+                          return new GLib.Variant.handle ((int32) value); }
+              case 'i': { var value = GLib.Test.rand_double_range (int32.MIN, int32.MAX);
+                          return new GLib.Variant.int32 ((int32) value); }
+              case 'n': { var value = GLib.Test.rand_double_range (int16.MIN, int16.MAX);
+                          return new GLib.Variant.int16 ((int16) value); }
+              case 'o': { var value = _rand_object_path ();
+                          return new GLib.Variant.object_path (value); }
+              case 'q': { var value = GLib.Test.rand_double_range (uint16.MIN, uint16.MAX);
+                          return new GLib.Variant.uint16 ((uint16) value); }
+              case 's': { var value = rand_string (GLib.Test.rand_int_range (0, 100));
+                          return new GLib.Variant.string (value); }
+              case 't': { var value = GLib.Test.rand_double_range (uint64.MIN, uint64.MAX);
+                          return new GLib.Variant.uint64 ((uint64) value); }
+              case 'u': { var value = GLib.Test.rand_double_range (uint32.MIN, uint32.MAX);
+                          return new GLib.Variant.uint32 ((uint32) value); }
+              case 'v': { var value = rand_variant (simple);
+                          return new GLib.Variant.variant (value); }
+              case 'x': { var value = GLib.Test.rand_double_range (int64.MIN, int64.MAX);
+                          return new GLib.Variant.int64 ((int64) value); }
+              case 'y': { var value = GLib.Test.rand_double_range (uint8.MIN, uint8.MAX);
+                          return new GLib.Variant.byte ((uint8) value); }
+
+              default: assert_not_reached ();
+            }
+        }
+
+      static GLib.Variant _rand_variant_tuple (GLib.VariantType signature, bool simple)
+        {
+
+          var length = signature.n_items ();
+          var array = new GenericArray<GLib.Variant> ((uint) length);
+
+          for (unowned GLib.VariantType ctype = signature.first (); ctype != null; ctype = ctype.next ())
+            {
+              var inner = _rand_variant (ctype, simple);
+              array.add ((owned) inner);
+            }
+        return new GLib.Variant.tuple (array.steal ());
         }
 
       public abstract void run (GLib.MainContext? context = null);
