@@ -17,7 +17,7 @@
 
 project \
   (
-    'ipclib', 'c',
+    'ipclib', 'c', 'vala',
 
     default_options : [ 'c_std=c17', 'warning_level=3' ],
     license : 'GPL-3.0-or-later',
@@ -63,6 +63,8 @@ libgio_dep = dependency ('gio-2.0', required: true)
 
 subdir ('src')
 subdir ('proxy')
+
+subdir ('tests')
 
 ########################
 # Summaries            #
