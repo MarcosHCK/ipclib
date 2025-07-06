@@ -33,12 +33,6 @@ struct _HandleData
   GVariant* params;
 };
 
-struct _HandlerCompleteData
-{
-  gint* flag;
-  GTask* task;
-};
-
 enum
 {
   sig_emit,
@@ -49,11 +43,16 @@ enum
 G_DEFINE_TYPE (IpcEndpoint, ipc_endpoint, G_TYPE_OBJECT)
 static guint signals [sig_number] = {0};
 
+#define tag(t) (G_GNUC_EXTENSION ({ (gpointer) ((t)); }))
+
 static void _handler_free (gpointer ptr)
 {
-  g_object_unref (((struct _Handler*) ptr)->handler);
-  g_free (((struct _Handler*) ptr)->name);
-  g_variant_type_free (((struct _Handler*) ptr)->param_type);
+  struct _Handler* data = (struct _Handler*) ptr;
+
+  g_signal_handler_disconnect (data->handler, data->signal_id);
+  g_object_unref (data->handler);
+  g_free (data->name);
+  g_variant_type_free (data->param_type);
   g_slice_free (struct _Handler, ptr);
 }
 
@@ -152,71 +151,6 @@ void ipc_endpoint_delete_handler (IpcEndpoint* endpoint, const gchar* name)
   g_hash_table_remove (endpoint->handlers, name);
 }
 
-static void _handle_complete (IpcHandler* handler, GAsyncResult* res, struct _HandlerCompleteData* data);
-
-static void _handle (GTask* task, IpcEndpoint* self, struct _HandleData* data, GCancellable* cancellable)
-{
-  const gchar* name = data->name;
-  struct _Handler* handler = NULL;
-  GVariant* params = data->params;
-  GVariantType* param_type;
-
-  if (! g_hash_table_lookup_extended (self->handlers, name, NULL, (gpointer*) &handler))
-
-    g_task_return_new_error (task, G_IO_ERROR, G_IO_ERROR_FAILED, "unknown handler %s", data->name);
-  else
-
-    if ((param_type = handler->param_type) == NULL
-        || g_variant_check_format_string (params, g_variant_type_peek_string (param_type), FALSE))
-      {
-        gint flag;
-        struct _HandlerCompleteData down = { .flag = &flag, .task = task };
-
-        ipc_handler_handle (handler->handler, data->params, cancellable, (GAsyncReadyCallback) _handle_complete, &down);
-        while (g_atomic_int_get (&flag) != TRUE) g_thread_yield ();
-      }
-    else
-      {
-        const gchar* expected = g_variant_type_peek_string (param_type);
-        const gchar* got = g_variant_get_type_string (params);
-
-        GError* error = g_error_new (G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT, "invalid param types ('%s' expected, got '%s')", expected, got);
-        GVariant* reply = g_variant_ref_sink (ipc_reply_pack (NULL, error));
-
-        g_task_return_pointer (task, reply, (GDestroyNotify) g_variant_unref);
-      }
-}
-
-static void _handle_complete (IpcHandler* handler, GAsyncResult* res, struct _HandlerCompleteData* data)
-{
-  GError* tmperr = NULL;
-  GVariant* reply, *reply2;
-
-  if ((reply = ipc_handler_handle_finish (handler, res, &tmperr)), G_UNLIKELY (tmperr == NULL))
-    {
-      reply2 = g_variant_ref_sink (ipc_reply_pack (reply, NULL));
-
-      g_task_return_pointer (data->task, reply2, (GDestroyNotify) g_variant_unref);
-      g_variant_unref (reply);
-    }
-  else
-    {
-      reply = g_variant_ref_sink (ipc_reply_pack (NULL, tmperr));
-
-      g_task_return_pointer (data->task, reply, (GDestroyNotify) g_variant_unref);
-      g_error_free (tmperr);
-    }
-
-  g_atomic_int_set (data->flag, TRUE);
-}
-
-static void _handle_data_free (gpointer ptr)
-{
-  g_free (((struct _HandleData*) ptr)->name);
-  g_variant_unref (((struct _HandleData*) ptr)->params);
-  g_slice_free (struct _HandleData, ptr);
-}
-
 #define g_value_init_to(value,as,gtype,to) (G_GNUC_EXTENSION ({ \
     ; \
       GType __gtype = (gtype); \
@@ -247,31 +181,47 @@ void ipc_endpoint_emit (IpcEndpoint* endpoint, const gchar* name, GVariant* para
 void ipc_endpoint_handle (IpcEndpoint* endpoint, const gchar* name, GVariant* params, GCancellable* cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
   g_return_if_fail (IPC_IS_ENDPOINT (endpoint));
+  g_return_if_fail (name != NULL);
   g_return_if_fail (params != NULL);
   g_return_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable));
-  GTask* task = g_task_new (endpoint, cancellable, callback, user_data);
 
-  struct _HandleData reg =
-    {
-      .name = g_strdup (name),
-      .params = g_variant_ref (params),
-    };
+  const gpointer _tag = tag (ipc_endpoint_handle);
+  struct _Handler* handler;
+  IpcEndpoint* self = (IpcEndpoint*) endpoint;
+  GVariantType* param_type = NULL;
 
-  g_task_set_priority (task, G_PRIORITY_DEFAULT);
-  (g_task_set_source_tag) (task, (gpointer) ipc_endpoint_handle);
-  g_task_set_static_name (task, G_STRINGIFY (ipc_endpoint_handle));
-  g_task_set_task_data (task, g_slice_dup (struct _HandleData, &reg), _handle_data_free);
-  g_task_run_in_thread (task, (GTaskThreadFunc) _handle);
-  g_object_unref (task);
+  if (! g_hash_table_lookup_extended (self->handlers, name, NULL, (gpointer*) &handler))
+
+    g_task_report_new_error (self, callback, user_data, _tag, G_IO_ERROR, G_IO_ERROR_FAILED, "unknown handler %s", name);
+  else
+
+    if ((param_type = handler->param_type) == NULL
+        || g_variant_check_format_string (params, g_variant_type_peek_string (param_type), FALSE))
+      
+      ipc_handler_handle (handler->handler, params, cancellable, callback, user_data);
+    else
+      {
+        const gchar* expected = g_variant_type_peek_string (param_type);
+        const gchar* got = g_variant_get_type_string (params);
+
+        g_task_report_new_error (self, callback, user_data, _tag, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT,
+                                                                  "invalid param types ('%s' expected, got '%s')", expected, got);
+      }
 }
 
 GVariant* ipc_endpoint_handle_finish (IpcEndpoint* endpoint, GAsyncResult* res, GError** error)
 {
   g_return_val_if_fail (IPC_IS_ENDPOINT (endpoint), NULL);
-  g_return_val_if_fail (G_IS_TASK (res), NULL);
+  g_return_val_if_fail (G_IS_ASYNC_RESULT (res), NULL);
   g_return_val_if_fail (error == NULL || *error == NULL, NULL);
+  const gpointer _tag = tag (ipc_endpoint_handle);
 
-  return g_task_propagate_pointer (G_TASK (res), error);
+  if (g_async_result_is_tagged (res, _tag))
+
+    return g_task_propagate_pointer (G_TASK (res), error);
+  else
+    { gpointer handler = g_async_result_get_source_object (res);
+      return ipc_handler_handle_finish ((IpcHandler*) handler, res, error); }
 }
 
 IpcEndpoint* ipc_endpoint_new (void)

@@ -18,6 +18,8 @@
 #define __IPC_CALL__ 1
 #include <glib.h>
 
+#define IPC_CALL_SIGNATURE "(sr)"
+
 #if __cplusplus
 extern "C" {
 #endif // __cplusplus

@@ -70,6 +70,12 @@ namespace Testing
           return str.free_and_steal ();
         }
 
+      public static unowned T rand_pick<T> (T[] from)
+        {
+          var pick = GLib.Test.rand_int_range (0, from.length);
+        return from [pick];
+        }
+
       public static GLib.Variant rand_variant (bool simple = false)
         {
           var signature = _rand_signature (simple);

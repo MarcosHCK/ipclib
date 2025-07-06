@@ -28,13 +28,15 @@ G_DEFINE_INTERFACE (IpcHandler, ipc_handler, G_TYPE_OBJECT)
 
 static guint signals [sig_number] = {0};
 
+#define tag(t) (G_GNUC_EXTENSION ({ (gpointer) ((t)); }))
+
 void ipc_handler_default_handle (IpcHandler* handler, GVariant* params, GCancellable* cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
   (void) params;
   (void) cancellable;
 
   GError* error = g_error_new_literal (G_IO_ERROR, G_IO_ERROR_FAILED, "unimplemented");
-  g_task_report_error (handler, callback, user_data, (gpointer) ipc_handler_default_handle, error);
+  g_task_report_error (handler, callback, user_data, tag (ipc_handler_default_handle), error);
 }
 
 GVariant* ipc_handler_default_handle_finish (IpcHandler* handler, GAsyncResult* res, GError** error)
@@ -91,11 +93,11 @@ void ipc_handler_handle (IpcHandler* handler, GVariant* params, GCancellable* ca
   IPC_HANDLER_GET_INTERFACE (handler)->handle (handler, params, cancellable, callback, user_data);
 }
 
-GVariant *ipc_handler_handle_finish(IpcHandler *handler, GAsyncResult* res, GError** error)
+GVariant *ipc_handler_handle_finish (IpcHandler *handler, GAsyncResult* res, GError** error)
 {
   g_return_val_if_fail (IPC_IS_HANDLER (handler), NULL);
   g_return_val_if_fail (G_IS_TASK (res), NULL);
   g_return_val_if_fail (error == NULL || *error == NULL, NULL);
-
-  return IPC_HANDLER_GET_INTERFACE (handler)->handle_finish (handler, res, error);
+  GVariant* result = IPC_HANDLER_GET_INTERFACE (handler)->handle_finish (handler, res, error);
+return NULL == result ? result : g_variant_take_ref (result);
 }
