@@ -18,8 +18,9 @@
 #include <convert.h>
 #include <ipccall.h>
 #include <ipchandler.h>
-#include <proxyhandlererror.h>
 #include <gobjectproxyhandler.h>
+#include <report.h>
+#include <proxyhandlererror.h>
 
 struct _IpcGObjectProxyHandlerPrivate
 {
@@ -65,6 +66,7 @@ static void ipc_gobject_proxy_handler_class_dispose (GObject* pself)
 {
   IpcGObjectProxyHandlerPrivate* priv = ((IpcGObjectProxyHandler*) pself)->priv;
 
+  g_hash_table_remove_all (priv->properties);
   _g_object_unref0 (priv->proxiee);
 G_OBJECT_CLASS (ipc_gobject_proxy_handler_parent_class)->dispose (pself);
 }
@@ -73,7 +75,6 @@ static void ipc_gobject_proxy_handler_class_finalize (GObject* pself)
 {
   IpcGObjectProxyHandlerPrivate* priv = ((IpcGObjectProxyHandler*) pself)->priv;
 
-  g_hash_table_remove_all (priv->properties);
   g_hash_table_unref (priv->properties);
 G_OBJECT_CLASS (ipc_gobject_proxy_handler_parent_class)->finalize (pself);
 }
@@ -103,8 +104,6 @@ static void ipc_gobject_proxy_handler_class_set_property (GObject* pself, guint 
         break;
     }
 }
-
-#define tag(t) (G_GNUC_EXTENSION ({ (gpointer) ((t)); }))
 
 static void ipc_gobject_proxy_handler_class_invoke (IpcGObjectProxyHandler* self, const gchar* method, GVariant* parameters G_GNUC_UNUSED, GCancellable* cancellable G_GNUC_UNUSED, GAsyncReadyCallback callback, gpointer user_data)
 {
@@ -144,16 +143,6 @@ static void ipc_gobject_proxy_handler_init (IpcGObjectProxyHandler* self)
   priv->properties = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 }
 
-static void g_task_report_pointer (gpointer source_object, GAsyncReadyCallback callback, gpointer callback_data, gpointer source_tag, gpointer result, GDestroyNotify result_notify)
-{
-  GTask* task = g_task_new (source_object, NULL, callback, callback_data);
-
-  (g_task_set_source_tag) (task, source_tag);
-  (g_task_set_static_name) (task, G_STRFUNC);
-  g_task_return_pointer (task, result, result_notify);
-  g_object_unref (task);
-}
-
 static void ipc_gobject_proxy_handler_ipc_handler_iface_handle (IpcHandler* pself, GVariant* call, GCancellable* cancellable, GAsyncReadyCallback callback, gpointer user_data);
 
 static GType guard_name (IpcGObjectProxyHandler* self, const gchar* name, GValue* value, GAsyncReadyCallback callback, gpointer user_data)
@@ -186,7 +175,7 @@ static GVariant* wrap (GVariant* result)
 {
   GVariant* items [] = { result };
   GVariant* wrapped = g_variant_new_tuple (items, G_N_ELEMENTS (items));
-return g_variant_ref_sink (wrapped);
+return g_variant_take_ref (wrapped);
 }
 
 static void ipc_gobject_proxy_handler_ipc_handler_iface_handle (IpcHandler* pself, GVariant* call, GCancellable* cancellable, GAsyncReadyCallback callback, gpointer user_data)
@@ -214,7 +203,7 @@ static void ipc_gobject_proxy_handler_ipc_handler_iface_handle (IpcHandler* psel
           break;
         }
 
-      g_task_report_pointer (self, callback, user_data, tag (ipc_gobject_proxy_handler_ipc_handler_iface_handle), wrap (result), (GDestroyNotify) g_variant_unref);
+      _g_task_report_pointer (self, callback, user_data, tag (ipc_gobject_proxy_handler_ipc_handler_iface_handle), wrap (result), (GDestroyNotify) g_variant_unref);
       g_value_unset (&value);
       break;
     }
@@ -237,7 +226,7 @@ static void ipc_gobject_proxy_handler_ipc_handler_iface_handle (IpcHandler* psel
       result = g_variant_new_boolean (TRUE);
 
       g_object_set_property (self->priv->proxiee, name, &value);
-      g_task_report_pointer (self, callback, user_data, tag (ipc_gobject_proxy_handler_ipc_handler_iface_handle), wrap (result), (GDestroyNotify) g_variant_unref);
+      _g_task_report_pointer (self, callback, user_data, tag (ipc_gobject_proxy_handler_ipc_handler_iface_handle), wrap (result), (GDestroyNotify) g_variant_unref);
 
       g_value_unset (&value);
       g_variant_unref (to);

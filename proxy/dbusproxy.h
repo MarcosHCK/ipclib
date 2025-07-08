@@ -14,30 +14,21 @@
  * You should have received a copy of the GNU General Public License
  * along with IpcLib. If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef __IPC_PROXY_HANDLER_ERROR__
-#define __IPC_PROXY_HANDLER_ERROR__ 1
-#include <glib-object.h>
-
-typedef enum
-{
-  IPC_PROXY_HANDLER_ERROR_FAILED,
-  IPC_PROXY_HANDLER_ERROR_INVALID_SIGNATURE,
-  IPC_PROXY_HANDLER_ERROR_UNKNOWN_CONVERSION,
-  IPC_PROXY_HANDLER_ERROR_UNKNOWN_METHOD,
-  IPC_PROXY_HANDLER_ERROR_UNKNOWN_PROPERTY,
-} IpcProxyHandlerError;
-
-#define IPC_PROXY_HANDLER_ERROR (ipc_proxy_handler_error_quark ())
+#ifndef __IPC_DBUS_PROXY__
+#define __IPC_DBUS_PROXY__ 1
+#include <gio/gio.h>
 
 #if __cplusplus
 extern "C" {
 #endif // __cplusplus
 
-  GType ipc_proxy_handler_error_get_type (void) G_GNUC_CONST;
-  GQuark ipc_proxy_handler_error_quark (void) G_GNUC_CONST;
+  G_GNUC_INTERNAL void _g_dbus_proxy_get_property (GDBusProxy* proxy, const gchar* name, gint timeout, GCancellable* cancellable, GAsyncReadyCallback callback, gpointer user_data);
+  G_GNUC_INTERNAL GVariant* _g_dbus_proxy_get_property_finish (GDBusProxy* proxy, GAsyncResult* res, GError** error);
+  G_GNUC_INTERNAL void _g_dbus_proxy_set_property (GDBusProxy* proxy, const gchar* name, GVariant* value, gint timeout, GCancellable* cancellable, GAsyncReadyCallback callback, gpointer user_data);
+  G_GNUC_INTERNAL gboolean _g_dbus_proxy_set_property_finish (GDBusProxy* proxy, GAsyncResult* res, GError** error);
 
 #if __cplusplus
 }
 #endif // __cplusplus
 
-#endif // __IPC_PROXY_HANDLER_ERROR__
+#endif // __IPC_DBUS_PROXY__

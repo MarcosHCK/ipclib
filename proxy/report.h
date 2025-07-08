@@ -14,15 +14,21 @@
  * You should have received a copy of the GNU General Public License
  * along with IpcLib. If not, see <http://www.gnu.org/licenses/>.
  */
-#include <config.h>
-#include "proxyhandlererror.h"
+#ifndef __IPC_PROXY_HANDLER_REPORT__
+#define __IPC_PROXY_HANDLER_REPORT__ 1
+#include <gio/gio.h>
 
-G_DEFINE_QUARK (ipc-proxy-handler-error-quark, ipc_proxy_handler_error)
+#define tag(t) (G_GNUC_EXTENSION ({ (gpointer) ((t)); }))
 
-G_DEFINE_ENUM_TYPE (IpcProxyHandlerError, ipc_proxy_handler_error,
+#if __cplusplus
+extern "C" {
+#endif // __cplusplus
 
-  G_DEFINE_ENUM_VALUE (IPC_PROXY_HANDLER_ERROR_FAILED, "failed"),
-  G_DEFINE_ENUM_VALUE (IPC_PROXY_HANDLER_ERROR_INVALID_SIGNATURE, "invalid signature"),
-  G_DEFINE_ENUM_VALUE (IPC_PROXY_HANDLER_ERROR_UNKNOWN_CONVERSION, "unknown conversion"),
-  G_DEFINE_ENUM_VALUE (IPC_PROXY_HANDLER_ERROR_UNKNOWN_METHOD, "unknown method"),
-  G_DEFINE_ENUM_VALUE (IPC_PROXY_HANDLER_ERROR_UNKNOWN_PROPERTY, "unknown property"))
+  G_GNUC_INTERNAL void _g_task_report_boolean (gpointer source_object, GAsyncReadyCallback callback, gpointer callback_data, gpointer source_tag, gboolean result);
+  G_GNUC_INTERNAL void _g_task_report_pointer (gpointer source_object, GAsyncReadyCallback callback, gpointer callback_data, gpointer source_tag, gpointer result, GDestroyNotify result_notify);
+
+#if __cplusplus
+}
+#endif // __cplusplus
+
+#endif // __IPC_PROXY_HANDLER_REPORT__

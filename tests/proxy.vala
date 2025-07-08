@@ -26,12 +26,15 @@ namespace Testing
       [DBus (name = "Quit")] public abstract void quit () throws GLib.Error;
       [DBus (name = "TestMethod1")] public abstract string test_method_1 (string arg) throws GLib.Error;
       [DBus (name = "TestMethod2")] public abstract uint test_method_2 (string arg) throws GLib.Error;
+      [DBus (name = "Property1")] public abstract string property_1 { owned get; set; }
     }
 
   class InterfaceImpl : GLib.Object, Interface
     {
 
       public GLib.MainLoop loop { get; construct; }
+
+      public string property_1 { owned get; set; default = BaseTestCase.rand_string (); }
 
       public InterfaceImpl (GLib.MainLoop loop)
         {
@@ -145,12 +148,44 @@ namespace Testing
             }
 
           assert_cmpuint (hash1, GLib.CompareOperator.EQ, hash2);
+
+          value1 = proxiee.property_1;
+          params = Ipc.ProxyHandler.get_property_pack ("Property1");
+
+          try { value2 = (yield proxy.handle (params)).get_child_value (0).get_string (); } catch (GLib.Error e)
+            {
+              assert_no_error (e);
+              return;
+            }
+
+          assert_cmpstr (value1, GLib.CompareOperator.EQ, value2);
+
+          value1 = rand_string ();
+          params = Ipc.ProxyHandler.set_property_pack ("Property1", new GLib.Variant.string (value1));
+          bool good;
+
+          try { good = (yield proxy.handle (params)).get_child_value (0).get_boolean (); } catch (GLib.Error e)
+            {
+              assert_no_error (e);
+              return;
+            }
+
+          params = Ipc.ProxyHandler.get_property_pack ("Property1");
+          assert_true (good);
+
+          try { value2 = (yield proxy.handle (params)).get_child_value (0).get_string (); } catch (GLib.Error e)
+            {
+              assert_no_error (e);
+              return;
+            }
+
+          assert_cmpstr (value1, GLib.CompareOperator.EQ, value2);
         }
 
       static async void test_parent_acquire (GLib.DBusConnection connection, ProxyDBus self)
         {
 
-          var flags = GLib.DBusProxyFlags.NONE;
+          var flags = GLib.DBusProxyFlags.DO_NOT_LOAD_PROPERTIES;
           var name = "org.hck.IpcLib";
           var object_path = "/org/hck/IpcLib";
           Interface proxy;
@@ -173,7 +208,7 @@ namespace Testing
       static void test_parent_appeared (GLib.DBusConnection connection, ProxyDBus self, GLib.MainLoop loop)
         {
 
-          GLib.Thread.usleep ((uint) (0.1 * (double) _G_USEC_PER_SEC));
+          GLib.Thread.usleep ((uint) (0.2 * (double) _G_USEC_PER_SEC));
 
           test_parent_acquire.begin (connection, self, (o, res) =>
             {
@@ -184,6 +219,7 @@ namespace Testing
 
       static void test_parent_complete (GLib.Object? o, GLib.AsyncResult res)
         {
+
           try { ((GLib.Task) res).propagate_boolean (); } catch (GLib.Error e)
             { assert_no_error (e); }
         }

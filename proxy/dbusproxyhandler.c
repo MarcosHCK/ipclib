@@ -15,12 +15,17 @@
  * along with IpcLib. If not, see <http://www.gnu.org/licenses/>.
  */
 #include <config.h>
+#include <dbusproxy.h>
 #include <dbusproxyhandler.h>
 #include <ipccall.h>
 #include <ipchandler.h>
+#include <report.h>
+#include <proxyhandlererror.h>
 
 struct _IpcDBusProxyHandlerPrivate
 {
+  GHashTable* properties;
+  GDBusInterfaceInfo* info;
   GDBusProxy* proxy;
   gint timeout;
 };
@@ -52,15 +57,40 @@ static void ipc_dbus_proxy_handler_class_constructed (GObject* pself)
 {
   G_OBJECT_CLASS (ipc_dbus_proxy_handler_parent_class)->constructed (pself);
   IpcDBusProxyHandler* self = (IpcDBusProxyHandler*) pself;
-  GDBusProxy* proxy = self->priv->proxy;
+  IpcDBusProxyHandlerPrivate* priv = self->priv;
+  GDBusInterfaceInfo* info = NULL;
 
-  g_signal_connect_object (proxy, "g-signal", G_CALLBACK (on_g_signal), self, G_CONNECT_SWAPPED);
+  if ((info = g_dbus_proxy_get_interface_info (self->priv->proxy)) != NULL)
+    {
+      info = g_dbus_interface_info_ref (info);
+      info = (g_dbus_interface_info_cache_build (info), info);
+    }
+
+  priv->info = info;
+  g_signal_connect_object (priv->proxy, "g-signal", G_CALLBACK (on_g_signal), self, G_CONNECT_SWAPPED);
 }
 
 static void ipc_dbus_proxy_handler_class_dispose (GObject* pself)
 {
+  g_hash_table_remove_all (((IpcDBusProxyHandler*) pself)->priv->properties);
   _g_object_unref0 (((IpcDBusProxyHandler*) pself)->priv->proxy);
-  G_OBJECT_CLASS (ipc_dbus_proxy_handler_parent_class)->dispose (pself);
+G_OBJECT_CLASS (ipc_dbus_proxy_handler_parent_class)->dispose (pself);
+}
+
+static void ipc_dbus_proxy_handler_class_finalize (GObject* pself)
+{
+  IpcDBusProxyHandler* self = (IpcDBusProxyHandler*) pself;
+  GDBusInterfaceInfo* info;
+
+  g_hash_table_unref (self->priv->properties);
+
+  if ((info = self->priv->info) != NULL)
+    {
+      g_dbus_interface_info_cache_release (info);
+      g_dbus_interface_info_unref (info);
+    }
+
+G_OBJECT_CLASS (ipc_dbus_proxy_handler_parent_class)->dispose (pself);
 }
 
 static void ipc_dbus_proxy_handler_class_get_property (GObject* pself, guint property_id, GValue* value, GParamSpec* pspec)
@@ -100,6 +130,7 @@ static void ipc_dbus_proxy_handler_class_init (IpcDBusProxyHandlerClass* klass)
 
   G_OBJECT_CLASS (klass)->constructed = ipc_dbus_proxy_handler_class_constructed;
   G_OBJECT_CLASS (klass)->dispose = ipc_dbus_proxy_handler_class_dispose;
+  G_OBJECT_CLASS (klass)->finalize = ipc_dbus_proxy_handler_class_finalize;
   G_OBJECT_CLASS (klass)->get_property = ipc_dbus_proxy_handler_class_get_property;
   G_OBJECT_CLASS (klass)->set_property = ipc_dbus_proxy_handler_class_set_property;
 
@@ -110,8 +141,42 @@ static void ipc_dbus_proxy_handler_class_init (IpcDBusProxyHandlerClass* klass)
 
 static void ipc_dbus_proxy_handler_init (IpcDBusProxyHandler* self)
 {
-  self->priv = (IpcDBusProxyHandlerPrivate*) ipc_dbus_proxy_handler_get_instance_private (self);
+  IpcDBusProxyHandlerPrivate* priv;
+
+  self->priv = (priv = ipc_dbus_proxy_handler_get_instance_private (self));
+  priv->properties = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 }
+
+static void ipc_dbus_proxy_handler_ipc_handler_iface_handle (IpcHandler* pself, GVariant* params, GCancellable* cancellable, GAsyncReadyCallback callback, gpointer user_data);
+
+static const gchar* guard_name (IpcDBusProxyHandler* self, const gchar* name, GAsyncReadyCallback callback, gpointer user_data)
+{
+  GDBusInterfaceInfo* info = NULL;
+  const gchar* signature = NULL;
+  IpcDBusProxyHandlerPrivate* priv = self->priv;
+  GDBusPropertyInfo* prop = NULL;
+
+  if (NULL != (info = priv->info) && NULL != (prop = g_dbus_interface_info_lookup_property (info, name)))
+
+    signature = prop->signature;
+  else
+    {
+      const guint code = IPC_PROXY_HANDLER_ERROR_UNKNOWN_PROPERTY;
+      const GQuark domain = IPC_PROXY_HANDLER_ERROR;
+      const gpointer source_tag = tag (ipc_dbus_proxy_handler_ipc_handler_iface_handle);
+
+      g_task_report_new_error (self, callback, user_data, source_tag, domain, code, "unknown property '%s'", name);
+    }
+return signature;
+}
+
+#define peak_name(v) (G_GNUC_EXTENSION ({ \
+ ; \
+    GVariant* __p = (v); \
+    GVariant* __v = g_variant_get_child_value (__p, 0); \
+    const gchar* __n = g_variant_get_string (__v, NULL); \
+    g_variant_unref (__v); __n; \
+  }))
 
 static void ipc_dbus_proxy_handler_ipc_handler_iface_handle (IpcHandler* pself, GVariant* params, GCancellable* cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
@@ -119,18 +184,79 @@ static void ipc_dbus_proxy_handler_ipc_handler_iface_handle (IpcHandler* pself, 
   GDBusCallFlags flags2 = G_DBUS_CALL_FLAGS_NO_AUTO_START;
   GDBusCallFlags flags = flags1 | flags2;
   GVariant* parameters = NULL;
-  GDBusProxy* proxy = ((IpcDBusProxyHandler*) pself)->priv->proxy;
-  gint timeout = ((IpcDBusProxyHandler*) pself)->priv->timeout;
+  IpcDBusProxyHandler* self = (IpcDBusProxyHandler*) pself;
+  IpcDBusProxyHandlerPrivate* priv = self->priv;
   gchar* method_name = ipc_call_unpack (params, &parameters);
 
-  g_dbus_proxy_call (proxy, method_name, parameters, flags, timeout, cancellable, callback, user_data);
+  do { if (g_str_equal ("$get", method_name))
+    {
+      const gchar* prop_name;
+
+      if (NULL == guard_name (self, prop_name = peak_name (parameters), callback, user_data))
+        break;
+
+      _g_dbus_proxy_get_property (priv->proxy, prop_name, priv->timeout, cancellable, callback, user_data);
+      break;
+    }
+  else if (g_str_equal ("$set", method_name))
+    {
+      const gchar* prop_name;
+      const gchar* signature;
+      GVariant* variant;
+
+      if (NULL == (signature = guard_name (self, prop_name = peak_name (parameters), callback, user_data)))
+        break;
+
+      variant = g_variant_get_child_value (parameters, 1);
+
+      if (! g_variant_type_equal (signature, g_variant_get_type (variant)))
+        {
+          const guint code = IPC_PROXY_HANDLER_ERROR_INVALID_SIGNATURE;
+          const GQuark domain = IPC_PROXY_HANDLER_ERROR;
+          const gpointer source_tag = tag (ipc_dbus_proxy_handler_ipc_handler_iface_handle);
+
+          const gchar* vtype1 = signature;
+          const gchar* vtype2 = g_variant_get_type_string (variant);
+
+          g_task_report_new_error (self, callback, user_data, source_tag, domain, code, "invalid signature '%s' (expected '%s')", vtype2, vtype1);
+          break;
+        }
+
+      _g_dbus_proxy_set_property (priv->proxy, prop_name, variant, priv->timeout, cancellable, callback, user_data);
+      g_variant_unref (variant);
+      break;
+    }
+  else { g_dbus_proxy_call (priv->proxy, method_name, parameters, flags, priv->timeout, cancellable, callback, user_data);
+    break; } }
+  while (TRUE);
+  
+  g_free (method_name);
   g_variant_unref (parameters);
 }
 
 static GVariant* ipc_dbus_proxy_handler_ipc_handler_iface_handle_finish (IpcHandler* pself, GAsyncResult* res, GError** error)
 {
-  GDBusProxy* proxy = ((IpcDBusProxyHandler*) pself)->priv->proxy;
-  return g_dbus_proxy_call_finish (proxy, res, error);
+  IpcDBusProxyHandler* self = (IpcDBusProxyHandler*) pself;
+  IpcDBusProxyHandlerPrivate* priv = self->priv;
+
+  if (g_async_result_is_tagged (res, tag (ipc_dbus_proxy_handler_ipc_handler_iface_handle)))
+
+    return g_task_propagate_pointer (G_TASK (res), error);
+  else if (g_async_result_is_tagged (res, tag (_g_dbus_proxy_get_property)))
+    {
+      GVariant* variant = _g_dbus_proxy_get_property_finish (priv->proxy, res, error);
+      GVariant* items [] = { variant };
+      GVariant* result = g_variant_new_tuple (items, G_N_ELEMENTS (items));
+      return (g_variant_unref (variant), g_variant_take_ref (result));
+    }
+  else if (g_async_result_is_tagged (res, tag (_g_dbus_proxy_set_property)))
+    {
+      gboolean good = _g_dbus_proxy_set_property_finish (priv->proxy, res, error);
+      GVariant* items [] = { g_variant_new_boolean (good) };
+      GVariant* result = g_variant_new_tuple (items, G_N_ELEMENTS (items));
+      return g_variant_take_ref (result);
+    }
+return g_dbus_proxy_call_finish (priv->proxy, res, error);
 }
 
 static void ipc_dbus_proxy_handler_ipc_handler_iface (IpcHandlerIface* iface)
