@@ -226,10 +226,74 @@ namespace Testing
           public string p_string { get; set; default = rand_string (); }
         }
 
+      class DummyProxy : Ipc.GObjectProxyHandler
+        {
+
+          public DummyProxy (GLib.Object proxiee)
+            {
+              Object (proxiee: proxiee);
+            }
+
+          public override async GLib.Variant invoke (string method, GLib.Variant @params, GLib.Cancellable? cancellable) throws GLib.Error
+            {
+
+              if (method == "test_method_1")
+
+                return params;
+              else
+                return yield base.invoke (method, params, cancellable);
+            }
+        }
+
       protected override async void test ()
+        {
+          yield test_error ();
+          yield test_normal ();
+        }
+
+      protected async void test_error ()
         {
           var proxiee = new Dummy ();
           var proxy = new Ipc.GObjectProxyHandler (proxiee);
+
+          var params = Ipc.call_pack ("$get", new GLib.Variant ("(s)", "<miss>"));
+
+          try { yield proxy.handle (params); } catch (GLib.Error e)
+            {
+              unowned var error_code = Ipc.ProxyHandlerError.UNKNOWN_PROPERTY;
+              unowned var error_domain = Ipc.ProxyHandlerError.quark ();
+
+              assert_error (e, error_domain, error_code);
+              return;
+            }
+
+          params = Ipc.call_pack ("$set", new GLib.Variant ("(ss)", "<miss>", "<novalue>"));
+
+          try { yield proxy.handle (params); } catch (GLib.Error e)
+            {
+              unowned var error_code = Ipc.ProxyHandlerError.UNKNOWN_PROPERTY;
+              unowned var error_domain = Ipc.ProxyHandlerError.quark ();
+
+              assert_error (e, error_domain, error_code);
+              return;
+            }
+
+          params = Ipc.call_pack ("test_method_1", new GLib.Variant ("(s)", "<novalue>"));
+
+          try { yield proxy.handle (params); } catch (GLib.Error e)
+            {
+              unowned var error_code = Ipc.ProxyHandlerError.UNKNOWN_METHOD;
+              unowned var error_domain = Ipc.ProxyHandlerError.quark ();
+
+              assert_error (e, error_domain, error_code);
+              return;
+            }
+        }
+
+      protected async void test_normal ()
+        {
+          var proxiee = new Dummy ();
+          var proxy = new DummyProxy (proxiee);
 
           string value1 = proxiee.p_string;
           string value2;
@@ -256,6 +320,15 @@ namespace Testing
 
           params = Ipc.call_pack ("$get", new GLib.Variant ("(s)", "p-string"));
           assert_true (good);
+
+          try { value2 = (yield proxy.handle (params)).get_child_value (0).get_string (); } catch (GLib.Error e)
+            {
+              assert_no_error (e);
+              return;
+            }
+
+          params = Ipc.call_pack ("test_method_1", new GLib.Variant ("(s)", value1));
+          assert_cmpstr (value1, GLib.CompareOperator.EQ, value2);
 
           try { value2 = (yield proxy.handle (params)).get_child_value (0).get_string (); } catch (GLib.Error e)
             {

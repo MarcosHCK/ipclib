@@ -22,6 +22,17 @@ namespace Ipc
 
   [CCode (cheader_filename = "proxyhandler.h")]
 
+  public errordomain ProxyHandlerError
+    {
+      INVALID,
+      UNKNOWN_CONVERSION,
+      UNKNOWN_METHOD,
+      UNKNOWN_PROPERTY;
+      public static GLib.Quark quark ();
+    }
+
+  [CCode (cheader_filename = "proxyhandler.h")]
+
   public class DBusProxyHandler : GLib.Object, Ipc.Handler
     {
       public GLib.DBusProxy proxiee { get; construct; }
@@ -39,5 +50,7 @@ namespace Ipc
 
       [CCode (has_construct_function = false)]
       public GObjectProxyHandler (GLib.Object proxiee);
+      [CCode (returns_floating_reference = false)]
+      public virtual async GLib.Variant invoke (string method, GLib.Variant @params, GLib.Cancellable? cancellable = null) throws GLib.Error;
     }
 }

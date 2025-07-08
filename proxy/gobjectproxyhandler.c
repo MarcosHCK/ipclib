@@ -104,6 +104,21 @@ static void ipc_gobject_proxy_handler_class_set_property (GObject* pself, guint 
     }
 }
 
+#define tag(t) (G_GNUC_EXTENSION ({ (gpointer) ((t)); }))
+
+static void ipc_gobject_proxy_handler_class_invoke (IpcGObjectProxyHandler* self, const gchar* method, GVariant* parameters G_GNUC_UNUSED, GCancellable* cancellable G_GNUC_UNUSED, GAsyncReadyCallback callback, gpointer user_data)
+{
+  const guint code = IPC_PROXY_HANDLER_ERROR_UNKNOWN_METHOD;
+  const GQuark domain = IPC_PROXY_HANDLER_ERROR;
+
+  g_task_report_new_error (self, callback, user_data, tag (ipc_gobject_proxy_handler_class_invoke), domain, code, "unknown method '%s'", method);
+}
+
+static GVariant* ipc_gobject_proxy_handler_class_invoke_finish (IpcGObjectProxyHandler* self G_GNUC_UNUSED, GAsyncResult* res, GError** error)
+{
+  return g_task_propagate_pointer (G_TASK (res), error);
+}
+
 static void ipc_gobject_proxy_handler_class_init (IpcGObjectProxyHandlerClass* klass)
 {
   GParamFlags flags1 = G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS;
@@ -113,6 +128,9 @@ static void ipc_gobject_proxy_handler_class_init (IpcGObjectProxyHandlerClass* k
   G_OBJECT_CLASS (klass)->finalize = ipc_gobject_proxy_handler_class_finalize;
   G_OBJECT_CLASS (klass)->get_property = ipc_gobject_proxy_handler_class_get_property;
   G_OBJECT_CLASS (klass)->set_property = ipc_gobject_proxy_handler_class_set_property;
+
+  klass->invoke = ipc_gobject_proxy_handler_class_invoke;
+  klass->invoke_finish = ipc_gobject_proxy_handler_class_invoke_finish;
 
   properties [prop_proxiee] = g_param_spec_object ("proxiee", "proxiee", "proxiee", G_TYPE_OBJECT, flags1);
   g_object_class_install_properties (G_OBJECT_CLASS (klass), prop_number, properties);
@@ -137,7 +155,6 @@ static void g_task_report_pointer (gpointer source_object, GAsyncReadyCallback c
 }
 
 static void ipc_gobject_proxy_handler_ipc_handler_iface_handle (IpcHandler* pself, GVariant* call, GCancellable* cancellable, GAsyncReadyCallback callback, gpointer user_data);
-#define tag (G_GNUC_EXTENSION ({ (gpointer) ipc_gobject_proxy_handler_ipc_handler_iface_handle; }))
 
 static GType guard_name (IpcGObjectProxyHandler* self, const gchar* name, GValue* value, GAsyncReadyCallback callback, gpointer user_data)
 {
@@ -152,7 +169,7 @@ static GType guard_name (IpcGObjectProxyHandler* self, const gchar* name, GValue
       GQuark domain = IPC_PROXY_HANDLER_ERROR;
       guint code = IPC_PROXY_HANDLER_ERROR_UNKNOWN_PROPERTY;
 
-      g_task_report_new_error (self, callback, user_data, tag, domain, code, "Unknown property '%s'", name);
+      g_task_report_new_error (self, callback, user_data, tag (ipc_gobject_proxy_handler_ipc_handler_iface_handle), domain, code, "Unknown property '%s'", name);
     }
 return have;
 }
@@ -193,11 +210,11 @@ static void ipc_gobject_proxy_handler_ipc_handler_iface_handle (IpcHandler* psel
 
       if ((result = _ipc_convert_gvalue_to_gvariant (&value, &tmperr)), G_UNLIKELY (tmperr != NULL))
         {
-          g_task_report_error (pself, callback, user_data, tag, tmperr);
+          g_task_report_error (pself, callback, user_data, tag (ipc_gobject_proxy_handler_ipc_handler_iface_handle), tmperr);
           break;
         }
 
-      g_task_report_pointer (self, callback, user_data, tag, wrap (result), (GDestroyNotify) g_variant_unref);
+      g_task_report_pointer (self, callback, user_data, tag (ipc_gobject_proxy_handler_ipc_handler_iface_handle), wrap (result), (GDestroyNotify) g_variant_unref);
       g_value_unset (&value);
       break;
     }
@@ -212,7 +229,7 @@ static void ipc_gobject_proxy_handler_ipc_handler_iface_handle (IpcHandler* psel
 
       if ((_ipc_convert_gvariant_to_gvalue (to = g_variant_get_child_value (arguments, 1), &value, &tmperr)), G_UNLIKELY (tmperr != NULL))
         {
-          g_task_report_error (pself, callback, user_data, tag, tmperr);
+          g_task_report_error (pself, callback, user_data, tag (ipc_gobject_proxy_handler_ipc_handler_iface_handle), tmperr);
           g_variant_unref (to);
           break;
         }
@@ -220,7 +237,7 @@ static void ipc_gobject_proxy_handler_ipc_handler_iface_handle (IpcHandler* psel
       result = g_variant_new_boolean (TRUE);
 
       g_object_set_property (self->priv->proxiee, name, &value);
-      g_task_report_pointer (self, callback, user_data, tag, wrap (result), (GDestroyNotify) g_variant_unref);
+      g_task_report_pointer (self, callback, user_data, tag (ipc_gobject_proxy_handler_ipc_handler_iface_handle), wrap (result), (GDestroyNotify) g_variant_unref);
 
       g_value_unset (&value);
       g_variant_unref (to);
@@ -234,9 +251,14 @@ static void ipc_gobject_proxy_handler_ipc_handler_iface_handle (IpcHandler* psel
   g_free (method);
 }
 
-static GVariant* ipc_gobject_proxy_handler_ipc_handler_iface_handle_finish (IpcHandler* pself G_GNUC_UNUSED, GAsyncResult* res, GError** error)
+static GVariant* ipc_gobject_proxy_handler_ipc_handler_iface_handle_finish (IpcHandler* pself, GAsyncResult* res, GError** error)
 {
-  return g_task_propagate_pointer (G_TASK (res), error);
+
+  if (g_async_result_is_tagged (res, tag (ipc_gobject_proxy_handler_ipc_handler_iface_handle)))
+
+    return g_task_propagate_pointer (G_TASK (res), error);
+  else
+    return ipc_gobject_proxy_handler_invoke_finish ((IpcGObjectProxyHandler*) pself, res, error);
 }
 
 static void ipc_gobject_proxy_handler_ipc_handler_iface (IpcHandlerIface* iface)
