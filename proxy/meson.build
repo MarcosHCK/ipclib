@@ -15,10 +15,11 @@
 # along with IpcLib. If not, see <http://www.gnu.org/licenses/>.
 #
 
-convertlib = files ('convert.h', 'val2var.c', 'var2val.c')
-dbusproxylib = files ('dbusproxyhandler.c', 'dbusproxyhandler.h')
-errorlib = files ('proxyhandlererror.c', 'proxyhandlererror.h')
-gobjectproxylib = files ('gobjectproxyhandler.c', 'gobjectproxyhandler.h')
+convert = files ('convert.h', 'val2var.c', 'var2val.c')
+dbusproxyhandler = files ('dbusproxyhandler.c', 'dbusproxyhandler.h')
+error = files ('proxyhandlererror.c', 'proxyhandlererror.h')
+gobjectproxy = files ('gobjectproxyhandler.c', 'gobjectproxyhandler.h')
+proxyhandler = files ('proxyhandlercall.c', 'proxyhandlercall.h')
 
 ipclibproxy = library \
   (
@@ -26,7 +27,7 @@ ipclibproxy = library \
 
     dependencies: [ config_dep, ipclib_dep, libgio_dep ],
     include_directories: include_directories ('.'),
-    sources: [ convertlib, dbusproxylib, errorlib, gobjectproxylib, 'proxyhandler.h' ]
+    sources: [ convert, dbusproxyhandler, error, gobjectproxy, proxyhandler, 'proxyhandler.h' ]
   )
 
 ipclibproxy_dep = declare_dependency \

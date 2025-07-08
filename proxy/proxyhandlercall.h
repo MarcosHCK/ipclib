@@ -14,12 +14,19 @@
  * You should have received a copy of the GNU General Public License
  * along with IpcLib. If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef __IPC_PROXY_HANDLER__
-#define __IPC_PROXY_HANDLER__ 1
+#ifndef __IPC_PROXY_HANDLER_CALL__
+#define __IPC_PROXY_HANDLER_CALL__ 1
+#include <glib.h>
 
-#include <dbusproxyhandler.h>
-#include <gobjectproxyhandler.h>
-#include <proxyhandlercall.h>
-#include <proxyhandlererror.h>
+#if __cplusplus
+extern "C" {
+#endif // __cplusplus
 
-#endif // __IPC_PROXY_HANDLER__
+  GVariant* ipc_proxy_handler_get_property_pack (const gchar* property_name);
+  GVariant* ipc_proxy_handler_set_property_pack (const gchar* property_name, GVariant* value);
+
+#if __cplusplus
+}
+#endif // __cplusplus
+
+#endif // __IPC_PROXY_HANDLER_CALL__

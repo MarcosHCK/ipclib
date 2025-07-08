@@ -33,6 +33,16 @@ namespace Ipc
 
   [CCode (cheader_filename = "proxyhandler.h")]
 
+  namespace ProxyHandler
+    {
+      [CCode (returns_floating_reference = true)]
+      public static GLib.Variant get_property_pack (string property_name);
+      [CCode (returns_floating_reference = true)]
+      public static GLib.Variant set_property_pack (string property_name, GLib.Variant variant);
+    }
+
+  [CCode (cheader_filename = "proxyhandler.h")]
+
   public class DBusProxyHandler : GLib.Object, Ipc.Handler
     {
       public GLib.DBusProxy proxiee { get; construct; }

@@ -14,12 +14,23 @@
  * You should have received a copy of the GNU General Public License
  * along with IpcLib. If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef __IPC_PROXY_HANDLER__
-#define __IPC_PROXY_HANDLER__ 1
-
-#include <dbusproxyhandler.h>
-#include <gobjectproxyhandler.h>
+#include <config.h>
+#include <ipccall.h>
 #include <proxyhandlercall.h>
-#include <proxyhandlererror.h>
 
-#endif // __IPC_PROXY_HANDLER__
+GVariant* ipc_proxy_handler_get_property_pack (const gchar* property_name)
+{
+
+  GVariant* items [1] = { g_variant_new_string (property_name) };
+  GVariant* tuple = g_variant_new_tuple (items, G_N_ELEMENTS (items));
+  GVariant* call = ipc_call_pack ("$get", tuple);
+return call;
+}
+
+GVariant* ipc_proxy_handler_set_property_pack (const gchar* property_name, GVariant* value)
+{
+  GVariant* items [2] = { g_variant_new_string (property_name), value };
+  GVariant* tuple = g_variant_new_tuple (items, G_N_ELEMENTS (items));
+  GVariant* call = ipc_call_pack ("$set", tuple);
+return call;
+}

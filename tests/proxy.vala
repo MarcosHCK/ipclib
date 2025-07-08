@@ -256,7 +256,7 @@ namespace Testing
           var proxiee = new Dummy ();
           var proxy = new Ipc.GObjectProxyHandler (proxiee);
 
-          var params = Ipc.call_pack ("$get", new GLib.Variant ("(s)", "<miss>"));
+          var params = Ipc.ProxyHandler.get_property_pack ("<miss>");
 
           try { yield proxy.handle (params); } catch (GLib.Error e)
             {
@@ -267,7 +267,7 @@ namespace Testing
               return;
             }
 
-          params = Ipc.call_pack ("$set", new GLib.Variant ("(ss)", "<miss>", "<novalue>"));
+          params = Ipc.ProxyHandler.set_property_pack ("<miss>", new GLib.Variant.string ("<novalue>"));
 
           try { yield proxy.handle (params); } catch (GLib.Error e)
             {
@@ -298,7 +298,7 @@ namespace Testing
           string value1 = proxiee.p_string;
           string value2;
 
-          var params = Ipc.call_pack ("$get", new GLib.Variant ("(s)", "p-string"));
+          var params = Ipc.ProxyHandler.get_property_pack ("p-string");
 
           try { value2 = (yield proxy.handle (params)).get_child_value (0).get_string (); } catch (GLib.Error e)
             {
@@ -309,7 +309,7 @@ namespace Testing
           assert_cmpstr (value1, GLib.CompareOperator.EQ, value2);
 
           value1 = rand_string ();
-          params = Ipc.call_pack ("$set", new GLib.Variant ("(ss)", "p-string", value1));
+          params = Ipc.ProxyHandler.set_property_pack ("p-string", new GLib.Variant.string (value1));
           bool good;
 
           try { good = (yield proxy.handle (params)).get_child_value (0).get_boolean (); } catch (GLib.Error e)
@@ -318,7 +318,7 @@ namespace Testing
               return;
             }
 
-          params = Ipc.call_pack ("$get", new GLib.Variant ("(s)", "p-string"));
+          params = Ipc.ProxyHandler.get_property_pack ("p-string");
           assert_true (good);
 
           try { value2 = (yield proxy.handle (params)).get_child_value (0).get_string (); } catch (GLib.Error e)
