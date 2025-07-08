@@ -22,7 +22,7 @@ ipclib = library \
     'ipclib',
     c_args: [ '-DG_LOG_DOMAIN="IpcLib"', '-DG_LOG_USE_STRUCTURED=1' ],
     include_directories: include_directories ('.'),
-    dependencies: [ config_dep, libgio_dep ],
+    dependencies: [ config_dep, libgio_dep, libsupport_dep ],
     install: true,
 
     sources:

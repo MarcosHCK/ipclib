@@ -61,6 +61,7 @@ config_dep = declare_dependency \
 
 libgio_dep = dependency ('gio-2.0', required: true)
 
+subdir ('lib')
 subdir ('src')
 subdir ('proxy')
 

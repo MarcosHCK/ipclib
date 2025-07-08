@@ -20,16 +20,15 @@ dbusproxy = files ('dbusproxy.c', 'dbusproxy.h')
 dbusproxyhandler = [ dbusproxy, files ('dbusproxyhandler.c', 'dbusproxyhandler.h') ]
 error = files ('proxyhandlererror.c', 'proxyhandlererror.h')
 gobjectproxy = files ('gobjectproxyhandler.c', 'gobjectproxyhandler.h')
-report = files ('report.c', 'report.h')
 proxyhandler = files ('proxyhandlercall.c', 'proxyhandlercall.h')
 
 ipclibproxy = library \
   (
     'ipclibproxy',
 
-    dependencies: [ config_dep, ipclib_dep, libgio_dep ],
+    dependencies: [ config_dep, ipclib_dep, libgio_dep, libsupport_dep ],
     include_directories: include_directories ('.'),
-    sources: [ convert, dbusproxyhandler, error, gobjectproxy, report, proxyhandler, 'proxyhandler.h' ]
+    sources: [ convert, dbusproxyhandler, error, gobjectproxy, proxyhandler, 'proxyhandler.h' ]
   )
 
 ipclibproxy_dep = declare_dependency \

@@ -18,6 +18,7 @@
 #include <ipcendpoint.h>
 #include <ipcmarshal.h>
 #include <ipcreplay.h>
+#include <report.h>
 
 struct _Handler
 {
@@ -31,6 +32,13 @@ struct _HandleData
 {
   gchar* name;
   GVariant* params;
+};
+
+struct _Step
+{
+  IpcEndpoint* self;
+  GAsyncReadyCallback callback;
+  gpointer user_data;
 };
 
 enum
@@ -178,6 +186,8 @@ void ipc_endpoint_emit (IpcEndpoint* endpoint, const gchar* name, GVariant* para
   g_value_unset (& values [0]);
 }
 
+static void ipc_endpoint_handle_complete (GObject* pself, GAsyncResult* res, gpointer user_data);
+
 void ipc_endpoint_handle (IpcEndpoint* endpoint, const gchar* name, GVariant* params, GCancellable* cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
   g_return_if_fail (IPC_IS_ENDPOINT (endpoint));
@@ -197,8 +207,12 @@ void ipc_endpoint_handle (IpcEndpoint* endpoint, const gchar* name, GVariant* pa
 
     if ((param_type = handler->param_type) == NULL
         || g_variant_check_format_string (params, g_variant_type_peek_string (param_type), FALSE))
-      
-      ipc_handler_handle (handler->handler, params, cancellable, callback, user_data);
+      {
+        struct _Step data = { .callback = callback, .self = g_object_ref (endpoint), .user_data = user_data };
+        struct _Step* pdata = g_slice_copy (sizeof (data), &data);
+
+        ipc_handler_handle (handler->handler, params, cancellable, ipc_endpoint_handle_complete, pdata);
+      }
     else
       {
         const gchar* expected = g_variant_type_peek_string (param_type);
@@ -207,6 +221,23 @@ void ipc_endpoint_handle (IpcEndpoint* endpoint, const gchar* name, GVariant* pa
         g_task_report_new_error (self, callback, user_data, _tag, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT,
                                                                   "invalid param types ('%s' expected, got '%s')", expected, got);
       }
+}
+
+static void ipc_endpoint_handle_complete (GObject* pself, GAsyncResult* res, gpointer user_data)
+{
+  struct _Step* pdata = (struct _Step*) user_data;
+  GVariant* result;
+  gpointer source_tag = tag (ipc_endpoint_handle);
+  GError* tmperr = NULL;
+
+  if ((result = ipc_handler_handle_finish ((IpcHandler*) pself, res, &tmperr)), G_UNLIKELY (tmperr != NULL))
+
+    g_task_report_error (pdata->self, pdata->callback, pdata->user_data, source_tag, tmperr);
+  else
+    _g_task_report_pointer (pdata->self, pdata->callback, pdata->user_data, source_tag, result, (GDestroyNotify) g_variant_unref);
+
+  g_object_unref (pdata->self);
+  g_slice_free (struct _Step, pdata);
 }
 
 GVariant* ipc_endpoint_handle_finish (IpcEndpoint* endpoint, GAsyncResult* res, GError** error)
