@@ -43,3 +43,6 @@ ipclibproxy_valadep = declare_dependency \
     dependencies: [ ipclibproxy_dep, ipclib_valadep ],
     sources: [ 'proxyhandler.vapi' ]
   )
+
+meson.override_dependency ('ipclibproxy', ipclibproxy_dep)
+meson.override_dependency ('ipclibproxy-vala', ipclibproxy_valadep)
