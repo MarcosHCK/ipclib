@@ -120,8 +120,9 @@ static void ipc_gobject_proxy_handler_class_init (IpcGObjectProxyHandlerClass* k
 
 static void ipc_gobject_proxy_handler_init (IpcGObjectProxyHandler* self)
 {
-  IpcGObjectProxyHandlerPrivate* priv = self->priv;
+  IpcGObjectProxyHandlerPrivate* priv;
 
+  self->priv = (priv = ipc_gobject_proxy_handler_get_instance_private (self));
   priv->properties = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 }
 

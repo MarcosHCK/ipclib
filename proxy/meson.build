@@ -20,23 +20,23 @@ dbusproxylib = files ('dbusproxyhandler.c', 'dbusproxyhandler.h')
 errorlib = files ('proxyhandlererror.c', 'proxyhandlererror.h')
 gobjectproxylib = files ('gobjectproxyhandler.c', 'gobjectproxyhandler.h')
 
-libproxyhandler = library \
+ipclibproxy = library \
   (
-    'proxyhandler',
+    'ipclibproxy',
 
     dependencies: [ config_dep, ipclib_dep, libgio_dep ],
     include_directories: include_directories ('.'),
     sources: [ convertlib, dbusproxylib, errorlib, gobjectproxylib, 'proxyhandler.h' ]
   )
 
-libproxyhandler_dep = declare_dependency \
+ipclibproxy_dep = declare_dependency \
   (
     include_directories: include_directories ('.'),
-    link_with: libproxyhandler
+    link_with: ipclibproxy
   )
 
-libproxyhandler_valadep = declare_dependency \
+ipclibproxy_valadep = declare_dependency \
   (
-    dependencies: [ libproxyhandler_dep, ipclib_valadep ],
+    dependencies: [ ipclibproxy_dep, ipclib_valadep ],
     sources: [ 'proxyhandler.vapi' ]
   )

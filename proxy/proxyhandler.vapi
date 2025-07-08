@@ -28,7 +28,7 @@ namespace Ipc
       public int timeout { get; construct set; }
 
       [CCode (has_construct_function = false)]
-      private DBusProxyHandler ();
+      public DBusProxyHandler (GLib.DBusProxy proxiee);
     }
 
   [CCode (cheader_filename = "proxyhandler.h")]
@@ -38,6 +38,6 @@ namespace Ipc
       public GLib.Object proxiee { get; construct; }
 
       [CCode (has_construct_function = false)]
-      private GObjectProxyHandler ();
+      public GObjectProxyHandler (GLib.Object proxiee);
     }
 }

@@ -19,6 +19,8 @@ tests = \
   [
     { 'name': 'core', 'deps': [ ipclib_valadep ],
       'sources': [ 'core.vala' ] },
+    { 'name': 'proxy', 'deps': [ ipclib_valadep, ipclibproxy_valadep ],
+      'sources': [ 'proxy.vala' ] },
   ]
 
 baselib = files ('base.c', 'base.h', 'base.vala')
@@ -39,7 +41,7 @@ foreach test_ : tests
       name,
 
       executable \
-        ( '@0@-bin'.format (name),
+        ( '@0@.test'.format (name),
           dependencies: [ deps, libgio_dep, valac.find_library ('gio-2.0') ],
           link_with: libs,
           sources: [ baselib, sources ] ),
