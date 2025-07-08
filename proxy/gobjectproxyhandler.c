@@ -55,7 +55,7 @@ G_OBJECT_CLASS (ipc_gobject_proxy_handler_parent_class)->constructed (pself);
   for (i = 0; i < n_properties; ++i)
     {
       gchar* key = g_strdup (properties [i]->name);
-      gchar* value = GINT_TO_POINTER (TRUE);
+      gchar* value = (gchar*) properties [i];
 
       g_hash_table_insert (priv->properties, (gpointer) key, (gpointer) value);
     }
@@ -139,11 +139,15 @@ static void g_task_report_pointer (gpointer source_object, GAsyncReadyCallback c
 static void ipc_gobject_proxy_handler_ipc_handler_iface_handle (IpcHandler* pself, GVariant* call, GCancellable* cancellable, GAsyncReadyCallback callback, gpointer user_data);
 #define tag (G_GNUC_EXTENSION ({ (gpointer) ipc_gobject_proxy_handler_ipc_handler_iface_handle; }))
 
-static gboolean guard_name (IpcGObjectProxyHandler* self, const gchar* name, GAsyncReadyCallback callback, gpointer user_data)
+static GType guard_name (IpcGObjectProxyHandler* self, const gchar* name, GValue* value, GAsyncReadyCallback callback, gpointer user_data)
 {
   gboolean have;
+  GParamSpec* pspec;
 
-  if (! (have = g_hash_table_contains (self->priv->properties, (gconstpointer) name)))
+  if ((have = g_hash_table_lookup_extended (self->priv->properties, (gconstpointer) name, NULL, (gpointer*) &pspec)))
+
+    g_value_init (value, pspec->value_type);
+  else
     {
       GQuark domain = IPC_PROXY_HANDLER_ERROR;
       guint code = IPC_PROXY_HANDLER_ERROR_UNKNOWN_PROPERTY;
@@ -182,7 +186,7 @@ static void ipc_gobject_proxy_handler_ipc_handler_iface_handle (IpcHandler* psel
       GVariant* result = NULL;
       GValue value = G_VALUE_INIT;
 
-      if (! guard_name (self, name = peak_name (arguments), callback, user_data))
+      if (! guard_name (self, name = peak_name (arguments), &value, callback, user_data))
         break;
 
       g_object_get_property (self->priv->proxiee, name, &value);
@@ -197,13 +201,13 @@ static void ipc_gobject_proxy_handler_ipc_handler_iface_handle (IpcHandler* psel
       g_value_unset (&value);
       break;
     }
-  else if (g_str_equal (method, "$set") && guard_name (self, name = peak_name (arguments), callback, user_data))
+  else if (g_str_equal (method, "$set"))
     {
       GVariant* to = NULL;
       GVariant* result = NULL;
       GValue value = G_VALUE_INIT;
 
-      if (! guard_name (self, name = peak_name (arguments), callback, user_data))
+      if (! guard_name (self, name = peak_name (arguments), &value, callback, user_data))
         break;
 
       if ((_ipc_convert_gvariant_to_gvalue (to = g_variant_get_child_value (arguments, 1), &value, &tmperr)), G_UNLIKELY (tmperr != NULL))

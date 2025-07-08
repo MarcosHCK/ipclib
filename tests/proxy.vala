@@ -223,7 +223,7 @@ namespace Testing
 
           public int p_int { get; default = (int) GLib.Test.rand_int (); }
           public uint p_uint { get; default = (uint) GLib.Test.rand_int (); }
-          public string p_string { get; default = rand_string (); }
+          public string p_string { get; set; default = rand_string (); }
         }
 
       protected override async void test ()
@@ -254,6 +254,7 @@ namespace Testing
               return;
             }
 
+          params = Ipc.call_pack ("$get", new GLib.Variant ("(s)", "p-string"));
           assert_true (good);
 
           try { value2 = (yield proxy.handle (params)).get_child_value (0).get_string (); } catch (GLib.Error e)
